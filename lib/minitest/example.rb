@@ -36,7 +36,9 @@ module Minitest
         end
       end
 
-      Result.from self # per contract
+      result = ExampleResult.from self # per contract
+      result.source_location = self.method(self.name).source_location
+      result
     end
 
     def capture_stdout
@@ -47,6 +49,17 @@ module Minitest
       out.string
     ensure
       $stdout = original_out
+    end
+  end
+
+  class ExampleResult < Minitest::Result
+    def self.runnable_methods
+      []
+    end
+
+    def location
+      loc = " [#{source_location[0]}:#{source_location[1]}]" unless passed? or error?
+      "#{self.class_name}##{self.name}#{loc}"
     end
   end
 end
