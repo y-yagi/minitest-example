@@ -8,28 +8,45 @@ module Minitest
       def runnable_methods
         methods_matching(/^example_/)
       end
+    end
 
-      def run_one_method klass, method_name, reporter
-        code = klass.instance_method(method_name).source
-        parser = Rgot::ExampleParser.new(code)
-        parser.parse
-        example = parser.examples.first
+    def run
+      code = self.class.instance_method(self.name).source
+      parser = Rgot::ExampleParser.new(code)
+      parser.parse
+      example = parser.examples.first
 
-        reporter.prerecord klass, method_name
-        out = capture_stdout { reporter.record Minitest.run_one_method(klass, method_name) }
+      with_info_handler do
+        time_it do
+          capture_exceptions do
+            before_setup; setup; after_setup
 
-        klass.new(method_name).assert_equal example.output.strip, out.strip
+            out = capture_stdout do
+              self.send self.name
+            end
+
+            assert_equal example.output.strip, out.strip
+          end
+
+          TEARDOWN_METHODS.each do |hook|
+            capture_exceptions do
+              self.send hook
+            end
+          end
+        end
       end
 
-      def capture_stdout
-        original_out = $stdout
-        out = StringIO.new
-        $stdout = out
-        yield
-        out.string
-      ensure
-        $stdout = original_out
-      end
+      Result.from self # per contract
+    end
+
+    def capture_stdout
+      original_out = $stdout
+      out = StringIO.new
+      $stdout = out
+      yield
+      out.string
+    ensure
+      $stdout = original_out
     end
   end
 end
